@@ -3,4 +3,22 @@
     <string name="action_settings">Settings</string>
     <string name="admin">Admin</string>
     <string name="user">User</string>
+    <string name="add_device">Add Device</string>
+    <string name="admin_name">Admin ID</string>
+    <string name="password_hint">Password</string>
+    <string name="signIn">Sign In</string>
+    <string name="invalid_login_credentials">Invalid Login Credentials</string>
+    <string name="admin_login_label">Admin Login</string>
+    <string name="add_device_label">Add Device Activity</string>
+    <string name="delete">Delete</string>
+
+    <string-array name="devices_list">
+        <item>Fan</item>
+        <item>Light</item>
+        <item>TableFan</item>
+        <item>TubeLight</item>
+        <item>TV</item>
+        <item>Bulb</item>
+    </string-array>
+
 </resources>
