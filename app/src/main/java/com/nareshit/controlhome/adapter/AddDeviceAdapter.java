@@ -1,19 +1,19 @@
 package com.nareshit.controlhome.adapter;
 
 import android.app.Activity;
+import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.SharedPreferences;
-import android.graphics.Color;
-import android.graphics.drawable.ColorDrawable;
 import android.os.Build;
+import android.support.design.widget.FloatingActionButton;
 import android.support.v4.content.ContextCompat;
-import android.support.v4.content.Loader;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.view.ActionMode;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -26,30 +26,33 @@ import android.widget.CompoundButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.gms.common.api.GoogleApiClient;
 import com.nareshit.controlhome.AddDeviceActivity;
 import com.nareshit.controlhome.R;
+import com.nareshit.controlhome.model.Device;
+import com.nareshit.controlhome.model.DeviceControlChangeListener;
 import com.nareshit.controlhome.utils.AppConstants;
+import com.nareshit.controlhome.utils.DeviceManager;
+import com.nareshit.controlhome.utils.GoogleClient;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
-
-import static com.google.android.gms.internal.zzt.TAG;
 
 /**
  * Created by Santhosh on 2/24/2017.
  */
-public class AddDeviceAdapter extends RecyclerView.Adapter<AddDeviceAdapter.AddDeviceHolder> {
+public class AddDeviceAdapter extends RecyclerView.Adapter<AddDeviceAdapter.AddDeviceHolder> implements DeviceControlChangeListener {
 
     private final String TAG = AddDeviceAdapter.class.getSimpleName();
-    private final List<String> list;
-    private final SharedPreferences mPref;
-    private final List<String> deleteDevicesList;
     private final Toolbar toolBar;
     private final Context context;
+    private final FloatingActionButton fab;
+
+    private final List<Device> list;
+    private final List<Device> deleteDevicesList = new ArrayList(5);
+    private final DeviceManager deviceManager;
+    private final SharedPreferences mPref;
+    private final ProgressDialog progressDialog;
     private boolean isDeleteModeEnable;
     private ActionMode mActionMode;
     private ActionMode.Callback mActionModeCallback = new ActionMode.Callback() {
@@ -89,10 +92,30 @@ public class AddDeviceAdapter extends RecyclerView.Adapter<AddDeviceAdapter.AddD
                                         dialog.cancel();
                                         mode.finish();
                                         list.removeAll(deleteDevicesList);
-                                        mPref.edit().putStringSet(AppConstants.ADDED_DEVICES, new HashSet<String>(list)).apply();
+                                        String devices = "";
+                                        for (int i = 0; i < list.size(); i++) {
+                                            devices += list.get(i).getDeviceName() + (i != list.size() - 1 ? "," : "");
+                                        }
+                                        fab.setVisibility(list.size() < 5 ? View.VISIBLE : View.GONE);
+                                        mPref.edit().putString(AppConstants.ADDED_DEVICES, devices).apply();
                                         deleteDevicesList.clear();
                                         isDeleteModeEnable = false;
                                         notifyDataSetChanged();
+                                        GoogleApiClient instance = GoogleClient.getInstance(context);
+                                        if (instance.isConnected() || instance.isConnecting()) {
+                                            progressDialog.show();
+                                            deviceManager.setDeviceControl(list, new DeviceControlChangeListener() {
+                                                @Override
+                                                public void onDeviceControlsChangeSuccess() {
+                                                    progressDialog.dismiss();
+                                                }
+
+                                                @Override
+                                                public void onDeviceControlsChangeFailed() {
+                                                    progressDialog.dismiss();
+                                                }
+                                            });
+                                        }
                                     }
                                 })
                                 .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
@@ -121,20 +144,14 @@ public class AddDeviceAdapter extends RecyclerView.Adapter<AddDeviceAdapter.AddD
         }
     };
 
-    public AddDeviceAdapter(Context context) {
+    public AddDeviceAdapter(Context context, FloatingActionButton fab, List<Device> deviceList, DeviceManager deviceManager, ProgressDialog progressDialog) {
         this.context = context;
-        toolBar = (Toolbar) ((AddDeviceActivity) context).findViewById(R.id.toolbar);
         mPref = context.getSharedPreferences(AppConstants.PREF_NAME, Context.MODE_PRIVATE);
-        Set<String> devicesSet = mPref.getStringSet(AppConstants.ADDED_DEVICES, null);
-        list = new ArrayList();
-        deleteDevicesList = new ArrayList();
-        if (devicesSet == null) {
-            String[] deviceList = context.getResources().getStringArray(R.array.devices_list);
-            devicesSet = new HashSet(Arrays.asList(deviceList));
-            mPref.edit().putStringSet(AppConstants.ADDED_DEVICES, devicesSet).apply();
-        }
-        list.addAll(devicesSet);
-        Collections.sort(list);
+        toolBar = (Toolbar) ((AddDeviceActivity) context).findViewById(R.id.toolbar);
+        this.fab = fab;
+        this.list = deviceList;
+        this.deviceManager = deviceManager;
+        this.progressDialog = progressDialog;
     }
 
     @Override
@@ -154,12 +171,26 @@ public class AddDeviceAdapter extends RecyclerView.Adapter<AddDeviceAdapter.AddD
     }
 
     public void addDevice(String deviceName) {
-        list.add(deviceName);
-        Set<String> devicesSet = mPref.getStringSet(AppConstants.ADDED_DEVICES, null);
-        devicesSet.add(deviceName);
-        mPref.edit().putStringSet(AppConstants.ADDED_DEVICES, devicesSet).apply();
-        Collections.sort(list);
+        list.add(new Device(deviceName));
+        String devicesSet = mPref.getString(AppConstants.ADDED_DEVICES, null);
+        if (!TextUtils.isEmpty(devicesSet)) {
+            devicesSet = devicesSet + "," + deviceName;
+        } else {
+            devicesSet = deviceName;
+        }
+        mPref.edit().putString(AppConstants.ADDED_DEVICES, devicesSet).apply();
         notifyDataSetChanged();
+        fab.setVisibility(list.size() < 5 ? View.VISIBLE : View.GONE);
+    }
+
+    @Override
+    public void onDeviceControlsChangeSuccess() {
+
+    }
+
+    @Override
+    public void onDeviceControlsChangeFailed() {
+
     }
 
     class AddDeviceHolder extends RecyclerView.ViewHolder implements View.OnLongClickListener,
@@ -177,8 +208,8 @@ public class AddDeviceAdapter extends RecyclerView.Adapter<AddDeviceAdapter.AddD
             deviceCheckBox.setOnCheckedChangeListener(this);
         }
 
-        private void setDeviceInfo(String device) {
-            addDeviceTextView.setText(device);
+        private void setDeviceInfo(Device device) {
+            addDeviceTextView.setText(device.getDeviceName());
             if (isDeleteModeEnable) {
                 deviceCheckBox.setVisibility(View.VISIBLE);
                 deviceCheckBox.setOnCheckedChangeListener(null);
@@ -194,7 +225,7 @@ public class AddDeviceAdapter extends RecyclerView.Adapter<AddDeviceAdapter.AddD
             isDeleteModeEnable = true;
             ((AppCompatActivity) v.getContext())
                     .startSupportActionMode(mActionModeCallback);
-            String device = list.get(getLayoutPosition());
+            Device device = list.get(getLayoutPosition());
             if (!deleteDevicesList.contains(device)) {
                 deleteDevicesList.add(device);
             }
@@ -206,7 +237,7 @@ public class AddDeviceAdapter extends RecyclerView.Adapter<AddDeviceAdapter.AddD
 
         @Override
         public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-            String device = list.get(getLayoutPosition());
+            Device device = list.get(getLayoutPosition());
             if (!deleteDevicesList.contains(device)) {
                 deleteDevicesList.add(device);
             } else {

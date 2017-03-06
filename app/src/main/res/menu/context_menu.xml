@@ -7,4 +7,11 @@
         android:icon="@android:drawable/ic_delete"
         android:title="@string/delete"
         app:showAsAction="always" />
+
+    <item
+        android:id="@+id/menu_logout"
+        android:icon="@android:drawable/ic_delete"
+        android:title="LogOut"
+        app:showAsAction="never" />
+
 </menu>

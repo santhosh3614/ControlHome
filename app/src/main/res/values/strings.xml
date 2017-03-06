@@ -13,12 +13,8 @@
     <string name="delete">Delete</string>
 
     <string-array name="devices_list">
-        <item>Fan</item>
         <item>Light</item>
-        <item>TableFan</item>
-        <item>TubeLight</item>
-        <item>TV</item>
-        <item>Bulb</item>
+        <item>Fan</item>
     </string-array>
 
 </resources>

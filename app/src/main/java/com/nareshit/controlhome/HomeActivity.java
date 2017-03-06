@@ -14,6 +14,7 @@ import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesUtil;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.drive.Drive;
+import com.nareshit.controlhome.utils.GoogleClient;
 
 public class HomeActivity extends AppCompatActivity implements View.OnClickListener, GoogleApiClient.ConnectionCallbacks,
         GoogleApiClient.OnConnectionFailedListener {
@@ -28,26 +29,12 @@ public class HomeActivity extends AppCompatActivity implements View.OnClickListe
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_home);
-        mGoogleApiClient = new GoogleApiClient.Builder(this)
-                .addApi(Drive.API)
-                .addScope(Drive.SCOPE_FILE)
-                .addConnectionCallbacks(this)
-                .addOnConnectionFailedListener(this)
-                .build();
-
+        mGoogleApiClient = GoogleClient.getInstance(this);
         adminBtn = (Button) findViewById(R.id.adminBtn);
         userBtn = (Button) findViewById(R.id.userBtn);
 
         adminBtn.setOnClickListener(this);
         userBtn.setOnClickListener(this);
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        if (mGoogleApiClient.isConnected()) {
-            mGoogleApiClient.disconnect();
-        }
     }
 
     @Override
@@ -57,13 +44,23 @@ public class HomeActivity extends AppCompatActivity implements View.OnClickListe
             intent.setFlags(Intent.FLAG_ACTIVITY_NO_HISTORY);
             startActivity(intent);
         } else if (view == userBtn) {
-            mGoogleApiClient.connect();
+            mGoogleApiClient.registerConnectionCallbacks(this);
+            mGoogleApiClient.registerConnectionFailedListener(this);
+            if (mGoogleApiClient.isConnected()) {
+                mGoogleApiClient.unregisterConnectionCallbacks(this);
+                mGoogleApiClient.unregisterConnectionFailedListener(this);
+                startActivity(new Intent(this, MainActivity.class));
+            } else if (!mGoogleApiClient.isConnecting()) {
+                mGoogleApiClient.connect();
+            }
         }
     }
 
     @Override
     public void onConnected(@Nullable Bundle bundle) {
         Log.d(TAG, "onConnected");
+        mGoogleApiClient.unregisterConnectionCallbacks(this);
+        mGoogleApiClient.unregisterConnectionFailedListener(this);
         startActivity(new Intent(this, MainActivity.class));
     }
 
@@ -95,10 +92,16 @@ public class HomeActivity extends AppCompatActivity implements View.OnClickListe
         switch (requestCode) {
             case RESOLVE_CONNECTION_REQUEST_CODE:
                 if (resultCode == RESULT_OK) {
+                    GoogleApiClient mGoogleApiClient = GoogleClient.getInstance(this);
                     mGoogleApiClient.connect();
                 }
                 break;
         }
     }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        mGoogleApiClient.disconnect();
+    }
 }
